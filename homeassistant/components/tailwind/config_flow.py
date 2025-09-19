@@ -6,7 +6,6 @@ from collections.abc import Mapping
 from typing import Any
 
 from gotailwind import (
-    MIN_REQUIRED_FIRMWARE_VERSION,
     Tailwind,
     TailwindAuthenticationError,
     TailwindConnectionError,
@@ -29,6 +28,7 @@ from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from .const import DOMAIN, LOGGER
+from .firmware import is_supported_firmware
 
 LOCAL_CONTROL_KEY_URL = (
     "https://web.gotailwind.com/client/integration/local-control-key"
@@ -91,7 +91,9 @@ class TailwindFlowHandler(ConfigFlow, domain=DOMAIN):
 
         if (
             version := discovery_info.properties.get("SW ver")
-        ) and version < MIN_REQUIRED_FIRMWARE_VERSION:
+        ) and not is_supported_firmware(
+            version, discovery_info.properties.get("product")
+        ):
             return self.async_abort(reason="unsupported_firmware")
 
         await self.async_set_unique_id(

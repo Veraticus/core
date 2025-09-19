@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 from gotailwind import TailwindDeviceStatus
 import pytest
 
+from homeassistant.components.tailwind import firmware  # noqa: F401 - ensure patch
 from homeassistant.components.tailwind.const import DOMAIN
 from homeassistant.const import CONF_HOST, CONF_TOKEN
 from homeassistant.core import HomeAssistant

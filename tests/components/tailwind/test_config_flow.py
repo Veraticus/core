@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 from gotailwind import (
     TailwindAuthenticationError,
     TailwindConnectionError,
+    TailwindDeviceStatus,
     TailwindUnsupportedFirmwareVersionError,
 )
 import pytest
@@ -19,7 +20,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
-from tests.common import MockConfigEntry
+from tests.common import MockConfigEntry, load_fixture
 
 pytestmark = pytest.mark.usefixtures("mock_setup_entry")
 
@@ -192,6 +193,49 @@ async def test_zeroconf_flow(
         CONF_TOKEN: "987654",
     }
     assert not config_entry.options
+
+
+async def test_zeroconf_flow_new_hardware(
+    hass: HomeAssistant,
+    mock_tailwind: MagicMock,
+) -> None:
+    """Test zeroconf flow accepts newer iQ3 2.x hardware."""
+    mock_tailwind.status.return_value = TailwindDeviceStatus.from_json(
+        load_fixture("iq3_2.json", DOMAIN)
+    )
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": SOURCE_ZEROCONF},
+        data=ZeroconfServiceInfo(
+            ip_address=ip_address("127.0.0.1"),
+            ip_addresses=[ip_address("127.0.0.1")],
+            port=80,
+            hostname="tailwind-3ce90e6d2184.local.",
+            name="mock_name",
+            properties={
+                "device_id": "_3c_e9_e_6d_21_84_",
+                "product": "iQ3 2.1",
+                "SW ver": "1.03",
+                "vendor": "tailwind",
+            },
+            type="mock_type",
+        ),
+    )
+
+    assert result["step_id"] == "zeroconf_confirm"
+    assert result["type"] is FlowResultType.FORM
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={CONF_TOKEN: "987654"}
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    config_entry = result["result"]
+    assert config_entry.data == {
+        CONF_HOST: "127.0.0.1",
+        CONF_TOKEN: "987654",
+    }
 
 
 @pytest.mark.parametrize(
